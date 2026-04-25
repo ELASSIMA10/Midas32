@@ -180,20 +180,37 @@
 
     <div class="workspace" id="console"></div>
 
+    <div id="debug-log" style="position:fixed; bottom:0; left:0; right:0; background:rgba(0,0,0,0.8); color:#0f0; font-family:monospace; font-size:10px; padding:5px; border-top:1px solid #333; height:40px; overflow:hidden; z-index:100; pointer-events:none;">
+        EN ATTENTE DE CONNEXION...
+    </div>
+
     <script>
         const consoleEl = document.getElementById('console');
+        const debugEl = document.getElementById('debug-log');
         const numChannels = 12;
 
+        function log(msg) { debugEl.innerText = msg; }
+
         // Detection automatique de l'IP du pont si servi par le pont
-        if(window.location.hostname !== "") {
+        if(window.location.hostname !== "" && window.location.hostname !== "localhost") {
             document.getElementById('bridge-ip').value = window.location.hostname;
+        }
+
+        // Alerte de sécurité
+        if (window.location.protocol === "https:") {
+            alert("ATTENTION : Vous utilisez le lien Internet (HTTPS). Pour piloter la console depuis ce PC, vous devez ouvrir le fichier 'index.html' directement depuis votre Bureau.");
         }
 
         function sendCommand(ch, type, val) {
             const bridgeIP = document.getElementById('bridge-ip').value;
             const targetIP = document.getElementById('ip-config').value;
-            // On envoie aussi l'IP de la console au bridge pour qu'il sache où tirer
-            fetch(`http://${bridgeIP}:8080/ch/${ch}/${type}/${val}?target=${targetIP}`).catch(e => console.log("Offline"));
+            // Envoi au pont local port 9999
+            fetch(`http://${bridgeIP}:9999/ch/${ch}/${type}/${val}?target=${targetIP}`).catch(e => {
+                console.log("Pont hors ligne !");
+                document.getElementById('conn-status').innerText = "BRIDGE OFFLINE";
+                document.getElementById('conn-status').style.color = "white";
+                document.getElementById('conn-status').style.background = "red";
+            });
         }
 
         function toggleConnect(btn) {

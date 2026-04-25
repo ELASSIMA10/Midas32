@@ -6,13 +6,17 @@ echo.
 
 :: Demander les droits admin si pas presents
 net session >nul 2>&1
-if %errorLevel% == 0 (
-    echo [OK] Droits administrateur confirmes.
-) else (
+if %errorLevel% neq 0 (
     echo [!] ERREUR: Vous devez lancer ce fichier par CLIC DROIT -> 'Executer en tant qu'administrateur'
     pause
     exit
 )
+
+echo [OK] Droits administrateur confirmes.
+echo Deblocage du port 9999 pour l'iPhone...
+netsh http delete urlacl url=http://*:9999/ >nul 2>&1
+netsh http add urlacl url=http://+:9999/ user=Everyone >nul 2>&1
+netsh http add urlacl url=http://+:9999/ user="Tout le monde" >nul 2>&1
 
 echo.
 echo Lancement du moteur de mixage...
