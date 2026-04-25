@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>MIDAS M32 | Digital Console</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&family=Orbitron:wght@500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --m-black: #0c0c0e;
+            --m-gray: #1e1e24;
+            --m-dark-gray: #141418;
+            --m-blue: #0088ff;
+            --m-green: #00ff44;
+            --m-yellow: #ffcc00;
+            --m-red: #ff3300;
+            --scribble-bg: #4ae1ff;
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body { 
+            background: #000; 
+            color: #ccc; 
+            font-family: 'Roboto Condensed', sans-serif; 
+            height: 100dvh; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; 
+        }
+
+        /* Console Frame */
+        .console-top {
+            background: linear-gradient(180deg, #222 0%, #111 100%);
+            height: 80px;
+            display: flex;
+            align-items: center;
+            padding: 0 30px;
+            border-bottom: 2px solid #000;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+        .brand { font-family: 'Orbitron', sans-serif; font-size: 1.8rem; color: #fff; letter-spacing: 5px; }
+        .brand span { color: var(--m-blue); }
+
+        /* Main Workspace */
+        .workspace {
+            flex: 1;
+            display: flex;
+            background: var(--m-black);
+            overflow-x: auto;
+            padding: 15px;
+            gap: 5px;
+        }
+
+        /* Channel Strip */
+        .channel-strip {
+            width: 130px;
+            background: linear-gradient(90deg, #1a1a20 0%, #22222a 50%, #1a1a20 100%);
+            border: 1px solid #111;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            padding: 10px 0;
+            flex-shrink: 0;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+        }
+
+        /* Upper Controls (Gain/Aux) */
+        .strip-top { padding: 0 10px; margin-bottom: 10px; text-align: center; }
+        .label-tiny { font-size: 0.6rem; color: #666; font-weight: bold; margin-bottom: 2px; }
+        
+        /* Interactive Knob */
+        .gain-knob {
+            width: 40px; height: 40px;
+            background: radial-gradient(circle, #444 0%, #111 90%);
+            border: 2px solid #000;
+            border-radius: 50%;
+            margin: 0 auto 10px;
+            position: relative;
+            cursor: pointer;
+            box-shadow: 0 4px 5px rgba(0,0,0,0.6);
+            transition: transform 0.05s;
+        }
+        .gain-knob::after {
+            content: ''; position: absolute; top: 3px; left: 17px;
+            width: 3px; height: 12px; background: #fff; border-radius: 2px;
+        }
+
+        /* Aux Section */
+        .aux-section { padding: 0 10px; margin-bottom: 15px; }
+        .aux-row { margin-bottom: 8px; }
+        .aux-bar-container {
+            height: 12px; background: #000; border-radius: 2px; 
+            border: 1px solid #333; position: relative; cursor: pointer;
+        }
+        .aux-fill {
+            height: 100%; background: var(--m-blue); 
+            width: 0%; border-radius: 1px; transition: width 0.1s;
+        }
+        .aux-val {
+            position: absolute; width: 100%; text-align: center;
+            font-size: 0.55rem; color: #fff; line-height: 11px; font-weight: bold;
+        }
+
+        /* LCD Scribble Strip */
+        .lcd-strip {
+            width: 90%; height: 50px; background: var(--scribble-bg);
+            margin: 0 auto 15px; border-radius: 4px; border: 3px solid #000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            color: #001122; box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+        .lcd-name { font-weight: 900; font-size: 1rem; text-transform: uppercase; }
+
+        /* Buttons Strip */
+        .btn-strip { display: flex; flex-direction: column; gap: 8px; width: 85%; margin: 0 auto 20px; }
+        .m32-btn {
+            height: 38px; border: 2px solid #000; border-radius: 4px; 
+            font-weight: 900; font-size: 0.75rem; color: #555;
+            display: flex; justify-content: center; align-items: center;
+            background: linear-gradient(180deg, #333 0%, #111 100%);
+            box-shadow: inset 0 2px 2px rgba(255,255,255,0.05);
+            cursor: pointer;
+        }
+        .m32-btn.active-sel { background: var(--m-blue); color: #fff; box-shadow: 0 0 15px var(--m-blue); border-color: #fff; }
+        .m32-btn.active-solo { background: var(--m-yellow); color: #000; box-shadow: 0 0 15px var(--m-yellow); }
+        .m32-btn.active-mute { background: var(--m-red); color: #fff; box-shadow: 0 0 15px var(--m-red); }
+
+        /* Fader Section */
+        .fader-area {
+            flex: 1; position: relative; display: flex; 
+            flex-direction: column; align-items: center; 
+            padding-bottom: 10px; background: rgba(0,0,0,0.1);
+        }
+        .db-scale {
+            position: absolute; left: 15px; height: 80%; top: 5%;
+            display: flex; flex-direction: column; justify-content: space-between;
+            font-size: 0.55rem; color: #444; pointer-events: none;
+        }
+        .fader-track {
+            width: 45px; height: 80%; background: #000; border-radius: 20px;
+            border: 2px solid #222; box-shadow: inset 0 0 15px rgba(0,0,0,1);
+            position: relative;
+        }
+        
+        /* Advanced M32 Fader Handle */
+        .fader-handle {
+            position: absolute; 
+            width: 65px; height: 100px;
+            left: -10px; bottom: 20%; 
+            cursor: pointer;
+            background: linear-gradient(to right, 
+                #888 0%, #aaa 10%, #eee 45%, #fff 50%, #eee 55%, #aaa 90%, #888 100%
+            );
+            border: 2px solid #000;
+            border-radius: 4px;
+            box-shadow: 
+                0 15px 25px rgba(0,0,0,0.8),
+                inset 0 1px 1px rgba(255,255,255,0.8);
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center;
+            z-index: 5;
+        }
+        .fader-handle::before {
+            content: ''; position: absolute; top: 0; bottom: 0; left: 0; right: 0;
+            background: linear-gradient(180deg, 
+                rgba(0,0,0,0.3) 0%, 
+                transparent 15%, 
+                transparent 45%, 
+                rgba(0,0,0,0.1) 50%, 
+                transparent 55%, 
+                transparent 85%, 
+                rgba(0,0,0,0.3) 100%);
+            border-radius: 4px;
+        }
+        .fader-handle::after { 
+            content: ''; width: 35px; height: 4px; 
+            background: #111; border-radius: 2px;
+            position: relative; z-index: 6;
+            box-shadow: 0 1px 0 rgba(255,255,255,0.2);
+        }
+
+        /* Meter */
+        .full-meter {
+            position: absolute; right: 15px; height: 80%; top: 5%;
+            width: 12px; background: #050505; border-radius: 6px; overflow: hidden;
+            display: flex; flex-direction: column-reverse;
+        }
+        .meter-fill { width: 100%; height: 0%; background: linear-gradient(0deg, #0f0 0%, #ff0 70%, #f00 100%); transition: height 0.05s; }
+
+        /* Master Section on right */
+        .master-strip { padding-left: 20px; border-left: 5px solid #000; }
+        .master-strip .lcd-strip { background: var(--m-red); color: #fff; }
+
+        /* Scrollbar */
+        .workspace::-webkit-scrollbar { height: 10px; }
+        .workspace::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; border: 2px solid var(--m-black); }
+
+    </style>
+</head>
+<body>
+
+    <div class="console-top">
+        <div class="brand">MIDAS <span>M32</span></div>
+        <div style="flex:1; display:flex; justify-content:center; align-items:center;">
+            <div style="background:#000; padding:5px 15px; border:1px solid #333; border-radius:5px; display:flex; gap:10px; align-items:center;">
+                <span style="font-size:0.7rem; color:#888; font-weight:bold;">CONSOLE IP:</span>
+                <select id="ip-config" style="background:none; border:none; color:var(--m-green); font-family:'Orbitron', sans-serif; font-size:0.9rem; width:160px; outline:none; cursor:pointer;">
+                    <script>
+                        for(let i=2; i<=200; i++) {
+                            document.write(`<option value="192.168.1.${i}" ${i===200 ? 'selected' : ''}>192.168.1.${i}</option>`);
+                        }
+                    </script>
+                </select>
+                <button onclick="toggleConnect(this)" style="background:var(--m-dark-gray); color:#fff; border:1px solid #444; padding:3px 10px; border-radius:3px; font-size:0.6rem; cursor:pointer; font-weight:bold;">CONNECT</button>
+            </div>
+        </div>
+        <div style="text-align:right">
+            <div id="conn-status" style="font-weight:bold; color:#ff3300">DISCONNECTED</div>
+            <div style="font-size:0.7rem; color:#888">OSC REMOTE ENGINE</div>
+        </div>
+    </div>
+
+    <div class="workspace" id="console">
+        <!-- Ch 1 to 16 -->
+    </div>
+
+    <script>
+        const consoleEl = document.getElementById('console');
+        const numChannels = 10;
+
+        function sendCommand(ch, type, val) {
+            // Envoi au pont local port 8080
+            fetch(`http://localhost:8080/ch/${ch}/${type}/${val}`).catch(e => console.log("Bridge hors ligne"));
+        }
+
+        function toggleConnect(btn) {
+            const status = document.getElementById('conn-status');
+            const ip = document.getElementById('ip-config').value;
+            if (btn.innerText === "CONNECT") {
+                status.innerText = "CONNECTING...";
+                status.style.color = "var(--m-yellow)";
+                btn.disabled = true;
+                setTimeout(() => {
+                    status.innerText = "CONNECTED to " + ip;
+                    status.style.color = "var(--m-green)";
+                    btn.innerText = "DISCONNECT";
+                    btn.disabled = false;
+                    // Test de ping sur le bridge
+                    sendCommand('00', 'init', '0');
+                }, 1000);
+            } else {
+                status.innerText = "DISCONNECTED";
+                status.style.color = "var(--m-red)";
+                btn.innerText = "CONNECT";
+            }
+        }
+
+        function createChannel(id, name, isMaster = false) {
+            const strip = document.createElement('div');
+            strip.className = 'channel-strip' + (isMaster ? ' master-strip' : '');
+            
+            const hues = [200, 120, 40, 0, 280];
+            const hue = hues[id % hues.length];
+            const stripColor = isMaster ? '#f00' : `hsl(${hue}, 80%, 55%)`;
+
+            strip.innerHTML = `
+                <div class="strip-top">
+                    ${!isMaster ? `
+                        <div class="label-tiny">GAIN</div>
+                        <div class="gain-knob" data-val="0" style="transform: rotate(-130deg)"></div>
+                        <div class="label-tiny">AUX SENDS</div>
+                        <div class="aux-section">
+                            <div class="aux-row"><div class="aux-bar-container" data-id="aux1"><div class="aux-fill" style="width: 0%"></div><div class="aux-val">AUX 1</div></div></div>
+                            <div class="aux-row"><div class="aux-bar-container" data-id="aux2"><div class="aux-fill" style="width: 0%"></div><div class="aux-val">AUX 2</div></div></div>
+                            <div class="aux-row"><div class="aux-bar-container" data-id="aux3"><div class="aux-fill" style="width: 0%"></div><div class="aux-val">AUX 3</div></div></div>
+                            <div class="aux-row"><div class="aux-bar-container" data-id="aux4"><div class="aux-fill" style="width: 0%"></div><div class="aux-val">AUX 4</div></div></div>
+                        </div>
+                    ` : '<div style="height:120px"></div>'}
+                </div>
+
+                <div class="lcd-strip" style="background: ${stripColor}">
+                    <div class="label-tiny" style="color:rgba(0,0,0,0.5)">${isMaster ? 'MAIN' : 'CH '+id}</div>
+                    <div class="lcd-name">${name}</div>
+                </div>
+
+                <div class="btn-strip">
+                    <div class="m32-btn btn-sel">SEL</div>
+                    <div class="m32-btn btn-solo">SOLO</div>
+                    <div class="m32-btn btn-mute">MUTE</div>
+                </div>
+
+                <div class="fader-area">
+                    <div class="db-scale">
+                        <span>+10</span><span>0</span><span>-5</span><span>-10</span><span>-20</span><span>-40</span><span>-&infin;</span>
+                    </div>
+                    <div class="fader-track">
+                        <div class="fader-handle" style="bottom: 20%"></div>
+                    </div>
+                    <div class="full-meter">
+                        <div class="meter-fill"></div>
+                    </div>
+                </div>
+            `;
+
+            consoleEl.appendChild(strip);
+
+            // LOGIQUE D'AFFECTATION AUX (Interactivité Réelle)
+            const auxBars = strip.querySelectorAll('.aux-bar-container');
+            auxBars.forEach(bar => {
+                const fill = bar.querySelector('.aux-fill');
+                
+                const handleAuxMove = (evt) => {
+                    const rect = bar.getBoundingClientRect();
+                    const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+                    let percent = ((clientX - rect.left) / rect.width) * 100;
+                    if(percent < 0) percent = 0;
+                    if(percent > 100) percent = 100;
+                    fill.style.width = percent + '%';
+                    sendCommand(id, bar.dataset.id, Math.round(percent));
+                };
+
+                bar.addEventListener('mousedown', (e) => {
+                    handleAuxMove(e);
+                    const move = (me) => handleAuxMove(me);
+                    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
+                    window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
+                });
+
+                bar.addEventListener('touchstart', (e) => {
+                    handleAuxMove(e);
+                    const tmove = (te) => handleAuxMove(te);
+                    const tup = () => { window.removeEventListener('touchmove', tmove); window.removeEventListener('touchend', tup); };
+                    window.addEventListener('touchmove', tmove); window.addEventListener('touchend', tup);
+                }, {passive: false});
+            });
+
+            // LOGIQUE GAIN
+            const knob = strip.querySelector('.gain-knob');
+            if(knob) {
+                let startY, currentRot = -130;
+                const handleGain = (e) => {
+                    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                    let diff = startY - clientY;
+                    let rot = currentRot + diff;
+                    if(rot < -130) rot = -130;
+                    if(rot > 130) rot = 130;
+                    knob.style.transform = `rotate(${rot + 130}deg)`;
+                    sendCommand(id, 'gain', Math.round(rot + 130));
+                    return rot;
+                };
+
+                const start = (e) => {
+                    startY = e.touches ? e.touches[0].clientY : e.clientY;
+                    const move = (me) => { currentRot = handleGain(me); };
+                    const end = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', end); window.removeEventListener('touchmove', move); window.removeEventListener('touchend', end); };
+                    window.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
+                    window.addEventListener('touchmove', move, {passive:false}); window.addEventListener('touchend', end);
+                };
+                knob.addEventListener('mousedown', start);
+                knob.addEventListener('touchstart', start, {passive:false});
+            }
+
+            // BOUTONS (SEL, SOLO, MUTE)
+            const bSel = strip.querySelector('.btn-sel');
+            const bSolo = strip.querySelector('.btn-solo');
+            const bMute = strip.querySelector('.btn-mute');
+
+            bSel.onclick = () => {
+                document.querySelectorAll('.channel-strip').forEach(s => s.style.borderColor = '#111');
+                document.querySelectorAll('.btn-sel').forEach(b => b.classList.remove('active-sel'));
+                strip.style.borderColor = 'var(--m-blue)';
+                bSel.classList.add('active-sel');
+            };
+            bSolo.onclick = () => { bSolo.classList.toggle('active-solo'); sendCommand(id, 'solo', bSolo.classList.contains('active-solo') ? 1 : 0); };
+            bMute.onclick = () => { bMute.classList.toggle('active-mute'); sendCommand(id, 'mute', bMute.classList.contains('active-mute') ? 1 : 0); };
+
+            // FADER
+            const fTrack = strip.querySelector('.fader-track');
+            const fHandle = strip.querySelector('.fader-handle');
+            const meterFill = strip.querySelector('.meter-fill');
+
+            let isFading = false;
+            const updateFader = (clientY) => {
+                const rect = fTrack.getBoundingClientRect();
+                let pos = rect.bottom - clientY - 45;
+                if(pos < 0) pos = 0;
+                if(pos > rect.height - 90) pos = rect.height - 90;
+                fHandle.style.bottom = pos + 'px';
+                const vol = (pos / (rect.height - 90)) * 100;
+                meterFill.parentElement.dataset.vol = vol;
+                sendCommand(id, 'fader', Math.round(vol));
+            };
+
+            fHandle.addEventListener('mousedown', () => {
+                isFading = true;
+                const move = (me) => { if(isFading) updateFader(me.clientY); };
+                const up = () => { isFading = false; window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
+                window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
+            });
+
+            fHandle.addEventListener('touchstart', (e) => {
+                isFading = true;
+                const tmove = (te) => { if(isFading) updateFader(te.touches[0].clientY); te.preventDefault(); };
+                const tup = () => { isFading = false; window.removeEventListener('touchmove', tmove); window.removeEventListener('touchend', tup); };
+                window.addEventListener('touchmove', tmove, {passive:false}); window.addEventListener('touchend', tup);
+            }, {passive:false});
+
+            // ANIMATION DES METERS (Faux signal)
+            setInterval(() => {
+                if(!bMute.classList.contains('active-mute')) {
+                    const targetVol = parseFloat(meterFill.parentElement.dataset.vol || 20);
+                    let noise = (Math.random() * 30 - 15);
+                    let h = targetVol + noise;
+                    if(h < 0) h = 0; if(h > 100) h = 100;
+                    meterFill.style.height = (h * 0.8) + '%';
+                } else {
+                    meterFill.style.height = '0%';
+                }
+            }, 100 + (Math.random()*100));
+        }
+
+        // Création des pistes
+        const Names = ["KICK", "SNARE", "HH", "TOM 1", "BASS", "GUIT 1", "GUIT 2", "KEYS L", "KEYS R", "VOX MAIN"];
+        for(let i=0; i<numChannels; i++) {
+            createChannel(i+1, Names[i] || 'INPUT');
+        }
+        createChannel(99, 'MASTER', true);
+
+    </script>
+</body>
+</html>
