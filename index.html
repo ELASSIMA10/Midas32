@@ -165,6 +165,7 @@
             <div style="background:#000; padding:5px 15px; border:1px solid #333; border-radius:5px; display:flex; gap:10px; align-items:center;">
                 <span style="font-size:0.6rem; color:#888; font-weight:bold;">CONSOLE IP:</span>
                 <input type="text" id="ip-config" value="192.168.1.200" style="background:none; border:none; color:var(--m-green); font-family:'Orbitron', sans-serif; font-size:0.8rem; width:120px; outline:none;">
+                <button onclick="sendCommand('00', 'ping', '0')" style="background:#222; color:#0f0; border:1px solid #0f0; padding:2px 5px; border-radius:3px; font-size:0.5rem; cursor:pointer;">TEST PING</button>
             </div>
             <div style="background:#000; padding:5px 15px; border:1px solid #333; border-radius:5px; display:flex; gap:10px; align-items:center;">
                 <span style="font-size:0.6rem; color:#888; font-weight:bold;">BRIDGE IP (PC):</span>
@@ -202,13 +203,17 @@
         }
 
         function sendCommand(ch, type, val) {
-            const bridgeIP = document.getElementById('bridge-ip').value;
+            const bridgeIP = document.getElementById('bridge-ip').value || '127.0.0.1';
             const targetIP = document.getElementById('ip-config').value;
-            // Envoi au pont local port 9999
-            fetch(`http://${bridgeIP}:9999/ch/${ch}/${type}/${val}?target=${targetIP}`).catch(e => {
-                console.log("Pont hors ligne !");
+            const url = `http://${bridgeIP}:5555/ch/${ch}/${type}/${val}?target=${targetIP}`;
+            
+            fetch(url, { mode: 'no-cors' }).then(() => {
+                log(`OK >> Ch${ch} ${type} envoyé`);
+                document.getElementById('conn-status').innerText = "CONNECTED";
+                document.getElementById('conn-status').style.background = "none";
+            }).catch(e => {
+                log(`ERREUR : Le PC ne répond pas sur port 5555`);
                 document.getElementById('conn-status').innerText = "BRIDGE OFFLINE";
-                document.getElementById('conn-status').style.color = "white";
                 document.getElementById('conn-status').style.background = "red";
             });
         }
