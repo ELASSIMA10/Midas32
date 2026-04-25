@@ -1,42 +1,76 @@
 $port = 5555
 $listener = New-Object System.Net.HttpListener
-$listener.Prefixes.Add("http://localhost:$port/")
-$listener.Prefixes.Add("http://127.0.0.1:$port/")
+# On écoute sur tous les noms pour que l'iPhone puisse se connecter
+$listener.Prefixes.Add("http://*:5555/")
+
+# Détection de l'IP pour l'affichage
+$myIp = (Get-NetIPAddress | Where-Object { $_.AddressFamily -eq 'InterNetwork' -and $_.IPv4Mask -ne '255.255.255.255' -and $_.InterfaceAlias -notlike '*Loopback*' } | Select-Object -First 1).IPAddress
 
 try {
     $listener.Start()
-    Write-Host "`n[ SCANNER DE RECEPTION ]" -ForegroundColor Cyan
-    Write-Host "Le programme va maintenant chercher la table physiquement..."
+    Write-Host "`n===============================================" -ForegroundColor Green
+    Write-Host "   SERVEUR MIDAS CONNECTÉ AU RÉSEAU" -ForegroundColor Green
+    Write-Host "===============================================" -ForegroundColor Green
+    Write-Host "1. SUR VOTRE IPHONE, OUVREZ CETTE ADRESSE :"
+    Write-Host "   http://$myIp:5555" -ForegroundColor Cyan -BackgroundColor DarkBlue
+    Write-Host "-----------------------------------------------"
+    Write-Host "Laissez cette fenêtre ouverte pour que ça marche."
     
     $udp = New-Object System.Net.Sockets.UdpClient
-    $udp.Client.ReceiveTimeout = 1000
+    $htmlPath = Join-Path $PSScriptRoot "index.html"
 
     while ($listener.IsListening) {
         $context = $listener.GetContext()
         $request = $context.Request; $response = $context.Response
         $response.AddHeader("Access-Control-Allow-Origin", "*")
         
-        # On envoie un signal de recherche (BROADCAST)
-        $msg = [System.Text.Encoding]::ASCII.GetBytes("/xinfo`0`0`0`0")
-        $udp.Send($msg, $msg.Length, "255.255.255.255", 10023)
-        $udp.Send($msg, $msg.Length, "192.168.1.255", 10023)
-        $udp.Send($msg, $msg.Length, "192.168.0.255", 10023)
+        $path = $request.Url.LocalPath
         
-        Write-Host "Recherche de la console sur tout le reseau..." -ForegroundColor Yellow
-        
-        try {
-            $remoteEP = New-Object System.Net.IPEndPoint([System.Net.IPAddress]::Any, 0)
-            $receiveBytes = $udp.Receive([ref]$remoteEP)
-            $returnData = [System.Text.Encoding]::ASCII.GetString($receiveBytes)
-            Write-Host "TROUVÉ !! Console detectee a l'adresse : $($remoteEP.Address)" -ForegroundColor Green
-            Write-Host "Reponse de la console : $returnData"
-        } catch {
-            Write-Host "AUCUNE RÉPONSE : La console ne repond pas au signal de recherche." -ForegroundColor Red
-            Write-Host "Verifiez le cable reseau derriere la table (port REMOTE)."
-        }
+        # SI ON DEMANDE LA PAGE (Depuis l'iPhone)
+        if ($path -eq "/" -or $path -eq "/index.html") {
+            if (Test-Path $htmlPath) {
+                $content = [System.IO.File]::ReadAllBytes($htmlPath)
+                $response.ContentType = "text/html"
+                $response.OutputStream.Write($content, 0, $content.Length)
+            }
+        } 
+        # SI ON ENVOIE UNE COMMANDE OSC
+        elseif ($path.Contains("/ch/")) {
+            $parts = $path.Split("/")
+            if ($parts.Count -ge 5) {
+                $ch = $parts[2]; $type = $parts[3]; $val = [float]$parts[4] / 100.0
+                $targetIP = "192.168.1.200" # IP de la table
+                
+                # Construction binaire OSC
+                $oscAddr = switch($type) {
+                    "fader" { "/ch/$ch/mix/fader" }
+                    "mute"  { "/ch/$ch/mix/on" }
+                    "gain"  { "/ch/$ch/config/gain" }
+                    default { "/ch/$ch/mix/fader" }
+                }
 
-        $buffer = [System.Text.Encoding]::UTF8.GetBytes("OK")
-        $response.OutputStream.Write($buffer, 0, $buffer.Length)
+                $ms = New-Object System.IO.MemoryStream; $bw = New-Object System.IO.BinaryWriter($ms)
+                $bw.Write([System.Text.Encoding]::ASCII.GetBytes($oscAddr)); $bw.Write([byte]0)
+                while ($ms.Position % 4 -ne 0) { $bw.Write([byte]0) }
+                $pTag = if($type -eq "mute") { ",i" } else { ",f" }
+                $bw.Write([System.Text.Encoding]::ASCII.GetBytes($pTag)); $bw.Write([byte]0)
+                while ($ms.Position % 4 -ne 0) { $bw.Write([byte]0) }
+                $vBytes = if($type -eq "mute") { [System.BitConverter]::GetBytes([int](if($val -gt 0){0}else{1})) } else { [System.BitConverter]::GetBytes([float]$val) }
+                if ([System.BitConverter]::IsLittleEndian) { [System.Array]::Reverse($vBytes) }
+                $bw.Write($vBytes)
+                $packet = $ms.ToArray()
+                $udp.Send($packet, $packet.Length, $targetIP, 10023)
+                
+                Write-Host "ACTION >> $oscAddr -> $val" -ForegroundColor Yellow
+                $bw.Dispose(); $ms.Dispose()
+            }
+            $buffer = [System.Text.Encoding]::UTF8.GetBytes("OK")
+            $response.OutputStream.Write($buffer, 0, $buffer.Length)
+        }
         $response.Close()
     }
+} catch {
+    Write-Host "ERREUR : Verifiez que vous avez lance en ADMINISTRATEUR." -ForegroundColor Red
+    Write-Host $_.Exception.Message
+    pause
 } finally { $listener.Stop(); $udp.Close() }
